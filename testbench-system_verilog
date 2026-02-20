@@ -1,0 +1,209 @@
+interface intf(input bit clk); 
+  logic a,b;
+  logic sum,carry;
+endinterface
+
+
+class transaction; 
+  rand bit a,b;
+  bit sum,carry;
+endclass
+
+
+class generator;
+  mailbox gen2drv;
+  int N;
+ 
+  function new(mailbox gen2drv,int N);
+    this.gen2drv=gen2drv;
+    this.N=N;
+  endfunction
+  
+  task run();
+    repeat(N) begin
+    transaction t =new();
+    assert(t.randomize())
+      gen2drv.put(t);
+    end
+  endtask
+endclass
+
+
+class driver;
+  mailbox gen2drv;
+  int N;
+  virtual intf inf;
+  
+  function new(mailbox gen2drv,virtual intf inf,int N);
+    this.gen2drv=gen2drv;
+    this.inf=inf;
+    this.N=N;
+  endfunction
+  
+    task run();
+      repeat(N) begin
+      transaction t=new();
+      gen2drv.get(t);
+        @(posedge inf.clk)begin
+        inf.a <= t.a;
+        inf.b <= t.b;
+      end
+      end
+    endtask
+  
+endclass
+
+
+class monitor;
+  virtual intf inf;
+  mailbox mon2scb;
+  integer N;
+  
+  function new(virtual intf inf, mailbox mon2scb,int N);
+    this.inf=inf;
+    this.mon2scb=mon2scb;
+    this.N=N;
+    endfunction
+  
+  task run();
+    repeat(N)begin
+      transaction t =new();
+      @(posedge inf.clk)begin
+      #1 //it is important to add a delay here to avoid race between scoreboard and monitor
+      t.a=inf.a;
+      t.b=inf.b;
+      t.sum=inf.sum;
+      t.carry=inf.carry;
+      mon2scb.put(t);
+      end
+    end
+  endtask
+  
+endclass
+    
+
+class coverage_collector;
+  virtual intf vintf;
+  
+  covergroup cg @(posedge vintf.clk);
+    coverpoint vintf.a;
+    coverpoint vintf.b;
+    coverpoint vintf.sum;
+    coverpoint vintf.carry;
+    cross vintf.a, vintf.b;
+    //cross vintf.sum, vintf.carry;-------this gives 95% coverage because sum=1,carry=1 is never happening
+    cross vintf.sum, vintf.carry, vintf.a, vintf.b; {
+     ignore_bins invalid = binsof(vintf.sum) intersect {1} &&
+                         binsof(vintf.carry) intersect {1};
+    }  //here we declared 1,1 as illegal values which are never reached so ignore them. thus coverage=100%
+    //cross vintf.a,vintf.b,vintf.sum,vintf.carry; ---------this gives 87% coverage because few combinations of all these 4 are illegal and invalid , thus their beins will never be hit
+  endgroup
+
+  function new(virtual intf vintf);
+    this.vintf = vintf;
+    cg = new();   //  explicit instantiation
+  endfunction
+
+  function real get_coverage();
+    return cg.get_coverage();
+  endfunction
+  
+endclass
+
+
+class scoreboard;
+  mailbox mon2scb;
+  int N;
+  
+  function new(mailbox mon2scb,int N);
+    this.mon2scb=mon2scb;
+    this.N=N;
+  endfunction
+  
+    task run();
+      repeat(N) begin
+      transaction t;
+      mon2scb.get(t);
+        if (t.a + t.b == {t.carry, t.sum})
+    $display("correct result: a=%b, b=%b, sum=%b, carry=%b", t.a, t.b, t.sum, t.carry);
+        else
+    $error("incorrect result: a=%b, b=%b, sum=%b, carry=%b", t.a, t.b, t.sum, t.carry);
+      end
+    endtask
+endclass
+  
+
+class agent;
+  mailbox gen2drv;
+  mailbox mon2scb;
+  int N;
+  monitor m;
+  driver d;
+  generator g;
+  virtual intf inf;
+  
+  function new(virtual intf inf,int N);
+    mon2scb=new();
+    gen2drv=new();
+    this.inf=inf;
+    this.N=N;
+  m=new(inf,mon2scb,N);
+  g=new(gen2drv,N);
+  d=new(gen2drv,inf,N);
+  endfunction
+  
+  task run();
+    fork 
+      g.run();
+      m.run();
+      d.run();
+    join_none
+  endtask
+endclass
+
+
+class environment;
+  scoreboard s;
+  agent a;
+  coverage_collector cov;
+  virtual intf inf;
+
+  function new(virtual intf inf);
+    this.inf = inf;
+    cov = new(inf);                     
+    a   = new(inf,100);
+    s   = new(a.mon2scb,100);
+  endfunction
+
+  task run();
+    fork
+      a.run();
+      s.run();
+    join
+    $display("Functional Coverage = %0.2f%%", cov.get_coverage());
+  endtask
+endclass
+
+
+program test(intf inf);
+  environment e;
+  //inside program we dont use always block, we use begin end
+  initial begin
+    e=new(inf); 
+    e.run();
+  end
+endprogram
+
+
+module top();
+    logic clk;
+    initial begin
+    $dumpfile("adder.vcd");
+    $dumpvars(0, top);
+    end
+  initial clk=0;
+  always #5 clk=~clk;
+  intf inf(clk);
+  adder dut(.a(inf.a),.b(inf.b),.sum(inf.sum),.carry(inf.carry));
+  test t1(inf);
+endmodule
