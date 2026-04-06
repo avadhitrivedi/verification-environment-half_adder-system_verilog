@@ -90,11 +90,11 @@ class coverage_collector;
     cv_b:coverpoint inf.b;
     cv_sum:coverpoint inf.sum;
     cv_carry:coverpoint inf.carry;
-    cv_cross:cross inf.a, inf.b;
-    //cross inf.sum, inf.carry;-------this gives 95% coverage because sum=1,carry=1 is never happening
-    cv_cross1:cross inf.sum, inf.carry, inf.a, inf.b {
-     ignore_bins invalid = binsof(inf.sum) intersect {1} &&
-                         binsof(inf.carry) intersect {1};
+    cv_cross:cross cv_a, cv_b;
+    //cross cv_sum,cv_carry;-------this gives 95% coverage because sum=1,carry=1 is never happening
+    cv_cross1:cross cv_a,cv_b,cv_sum,cv_carry {
+      ignore_bins invalid = binsof(cv_sum) intersect {1} &&
+      binsof(cv_carry) intersect {1};
     }  //here we declared 1,1 as illegal values which are never reached so ignore them. thus coverage=100%
     //cross inf.a,inf.b,inf.sum,inf.carry; ---------this gives 87% coverage because few combinations of all these 4 are illegal and invalid , thus their beins will never be hit
   endgroup
