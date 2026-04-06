@@ -86,13 +86,13 @@ class coverage_collector;
   virtual intf vintf;
   
   covergroup cg @(posedge vintf.clk);
-    coverpoint vintf.a;
-    coverpoint vintf.b;
-    coverpoint vintf.sum;
-    coverpoint vintf.carry;
-    cross vintf.a, vintf.b;
+    cv_a:coverpoint vintf.a;
+    cv_b:coverpoint vintf.b;
+    cv_sum:coverpoint vintf.sum;
+    cv_carry:coverpoint vintf.carry;
+    cv_cross:cross vintf.a, vintf.b;
     //cross vintf.sum, vintf.carry;-------this gives 95% coverage because sum=1,carry=1 is never happening
-    cross vintf.sum, vintf.carry, vintf.a, vintf.b; {
+    cv_cross1:cross vintf.sum, vintf.carry, vintf.a, vintf.b {
      ignore_bins invalid = binsof(vintf.sum) intersect {1} &&
                          binsof(vintf.carry) intersect {1};
     }  //here we declared 1,1 as illegal values which are never reached so ignore them. thus coverage=100%
