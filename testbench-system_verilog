@@ -83,24 +83,24 @@ endclass
     
 
 class coverage_collector;
-  virtual intf vintf;
+  virtual intf inf;
   
-  covergroup cg @(posedge vintf.clk);
-    cv_a:coverpoint vintf.a;
-    cv_b:coverpoint vintf.b;
-    cv_sum:coverpoint vintf.sum;
-    cv_carry:coverpoint vintf.carry;
-    cv_cross:cross vintf.a, vintf.b;
-    //cross vintf.sum, vintf.carry;-------this gives 95% coverage because sum=1,carry=1 is never happening
-    cv_cross1:cross vintf.sum, vintf.carry, vintf.a, vintf.b {
-     ignore_bins invalid = binsof(vintf.sum) intersect {1} &&
-                         binsof(vintf.carry) intersect {1};
+  covergroup cg @(posedge inf.clk);
+    cv_a:coverpoint inf.a;
+    cv_b:coverpoint inf.b;
+    cv_sum:coverpoint inf.sum;
+    cv_carry:coverpoint inf.carry;
+    cv_cross:cross inf.a, inf.b;
+    //cross inf.sum, inf.carry;-------this gives 95% coverage because sum=1,carry=1 is never happening
+    cv_cross1:cross inf.sum, inf.carry, inf.a, inf.b {
+     ignore_bins invalid = binsof(inf.sum) intersect {1} &&
+                         binsof(inf.carry) intersect {1};
     }  //here we declared 1,1 as illegal values which are never reached so ignore them. thus coverage=100%
-    //cross vintf.a,vintf.b,vintf.sum,vintf.carry; ---------this gives 87% coverage because few combinations of all these 4 are illegal and invalid , thus their beins will never be hit
+    //cross inf.a,inf.b,inf.sum,inf.carry; ---------this gives 87% coverage because few combinations of all these 4 are illegal and invalid , thus their beins will never be hit
   endgroup
 
-  function new(virtual intf vintf);
-    this.vintf = vintf;
+  function new(virtual intf inf);
+    this.inf = inf;
     cg = new();   //  explicit instantiation
   endfunction
 
